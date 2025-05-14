@@ -1,0 +1,50 @@
+name: Build Main Branch Packages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Setup Node.js & Corepack
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Use pnpm version from repo
+        run: corepack prepare pnpm@$(cat .nvmrc | sed 's/v//') --activate
+
+      - name: Install dependencies
+        run: pnpm install -r --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm run build:packages
+
+      - name: Pack runtime-dom
+        run: |
+          cd packages/runtime-dom
+          npm pack
+          mv *.tgz $GITHUB_WORKSPACE
+
+      - name: Pack runtime-core
+        run: |
+          cd packages/runtime-core
+          npm pack
+          mv *.tgz $GITHUB_WORKSPACE
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: vue-main-tarballs
+          path: |
+            *.tgz
